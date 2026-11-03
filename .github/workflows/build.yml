@@ -1,0 +1,38 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unzip project
+        run: unzip -q ASTG-Downloader-small.zip
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+      - name: Accept Android licenses
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+      - name: Build all APKs
+        working-directory: Sealplus-main
+        run: |
+          chmod +x gradlew
+          mkdir -p "$GITHUB_WORKSPACE/out"
+
+          ./gradlew assembleGenericDebug -PnoSplits "-PABI_FILTERS=arm64-v8a;armeabi-v7a" --no-daemon
+          cp "$(find app/build/outputs/apk -name '*.apk' | head -1)" "$GITHUB_WORKSPACE/out/ASTG-universal.apk"
+          rm -rf app/build/outputs/apk
+
+          ./gradlew assembleGenericDebug -PnoSplits -PABI_FILTERS=arm64-v8a --no-daemon
+          cp "$(find app/build/outputs/apk -name '*.apk' | head -1)" "$GITHUB_WORKSPACE/out/ASTG-arm64-v8a.apk"
+          rm -rf app/build/outputs/apk
+
+          ./gradlew assembleGenericDebug -PnoSplits -PABI_FILTERS=armeabi-v7a --no-daemon
+          cp "$(find app/build/outputs/apk -name '*.apk' | head -1)" "$GITHUB_WORKSPACE/out/ASTG-armeabi-v7a.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ASTG-Downloader-APK
+          path: out/*.apk
